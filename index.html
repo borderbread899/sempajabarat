@@ -1,0 +1,2603 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Perkembangan UMKM - Sempaja Barat</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS CDN untuk Parsing & Export File Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome Icon -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <!-- Leaflet CSS & JS untuk Peta GIS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Font Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      #map {
+        height: 560px;
+        width: 100%;
+        border-radius: 1rem;
+        z-index: 10;
+      }
+      @keyframes pulse-emerald {
+        0% {
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+        }
+      }
+      @keyframes pulse-amber {
+        0% {
+          box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+        }
+      }
+      .custom-marker-digital {
+        border-radius: 50%;
+        animation: pulse-emerald 2s infinite;
+      }
+      .custom-marker-cash {
+        border-radius: 50%;
+        animation: pulse-amber 2s infinite;
+      }
+
+      /* LOGO: bentuk perisai modern, simetris, dan tidak terlihat seperti kotak */
+      .non-square-logo,
+      .non-square-badge {
+        clip-path: polygon(
+          50% 0%, 88% 12%, 94% 24%, 91% 58%,
+          82% 76%, 68% 90%, 50% 100%, 32% 90%,
+          18% 76%, 9% 58%, 6% 24%, 12% 12%
+        );
+        -webkit-clip-path: polygon(
+          50% 0%, 88% 12%, 94% 24%, 91% 58%,
+          82% 76%, 68% 90%, 50% 100%, 32% 90%,
+          18% 76%, 9% 58%, 6% 24%, 12% 12%
+        );
+        filter: drop-shadow(0 4px 5px rgba(15, 23, 42, 0.28));
+      }
+
+      .non-square-logo > img,
+      .non-square-badge > img,
+      .non-square-logo > div,
+      .non-square-badge > div {
+        clip-path: inherit;
+        -webkit-clip-path: inherit;
+      }
+
+      .non-square-logo img,
+      .non-square-badge img {
+        object-fit: contain;
+        padding: 3px;
+      }
+
+      @media print {
+        .no-print {
+          display: none !important;
+        }
+        body {
+          background-color: white !important;
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col"
+  >
+    <div class="flex h-screen overflow-hidden">
+      <!-- Sidebar Navigation (Desktop) -->
+      <aside
+        class="w-72 bg-slate-900 text-slate-200 flex flex-col shrink-0 no-print hidden md:flex border-r border-slate-800"
+      >
+        <!-- Header Sidebar dengan Logo Sempaja Barat berbentuk perisai modern -->
+        <div
+          class="p-5 border-b border-slate-800 flex items-center gap-3 bg-slate-950/50"
+        >
+          <div
+            class="w-12 h-12 non-square-logo bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 p-0.5 shadow-lg shadow-emerald-900/40 shrink-0 flex items-center justify-center"
+          >
+            <div
+              class="w-full h-full bg-slate-900 non-square-logo flex items-center justify-center overflow-hidden p-1"
+            >
+              <img
+                src="logo.jpeg"
+                alt="Logo Sempaja Barat"
+                class="w-full h-full object-contain filter drop-shadow-md"
+                style="object-fit: contain;"
+                onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-building-columns text-emerald-400 text-lg\'></i>';"
+              />
+            </div>
+          </div>
+          <div>
+            <h2
+              class="font-extrabold text-sm text-white tracking-wide leading-tight"
+            >
+              SEMPAJA BARAT
+            </h2>
+            <p
+              class="text-[11px] text-emerald-400 font-semibold tracking-wider uppercase"
+            >
+              Sistem Informasi UMKM
+            </p>
+          </div>
+        </div>
+
+        <!-- Menu Navigasi -->
+        <nav class="flex-1 p-4 space-y-2">
+          <button
+            id="nav-peta"
+            onclick="switchTab('peta')"
+            class="w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-900/30 transition text-left"
+          >
+            <i class="fa-solid fa-map-location-dot text-lg w-5 text-center"></i>
+            <span>Peta & Statistik RT</span>
+          </button>
+          <button
+            id="nav-overview"
+            onclick="switchTab('overview')"
+            class="w-full flex items-center gap-3 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white font-medium transition text-left"
+          >
+            <i class="fa-solid fa-chart-pie text-lg w-5 text-center"></i>
+            <span>Ringkasan & Statistik</span>
+          </button>
+          <button
+            id="nav-tabel"
+            onclick="switchTab('tabel')"
+            class="w-full flex items-center gap-3 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white font-medium transition text-left"
+          >
+            <i class="fa-solid fa-table-list text-lg w-5 text-center"></i>
+            <span>Data Rincian UMKM</span>
+          </button>
+        </nav>
+
+        <!-- Footer Sidebar dengan Logo KKN dan Logo 52 -->
+        <div
+          class="p-4 border-t border-slate-800 bg-slate-950/40 text-xs text-slate-400 flex flex-col gap-3"
+        >
+          <!-- Container Logo KKN & Logo 52 -->
+          <div
+            class="bg-slate-900/80 p-4 rounded-xl border border-slate-800/80 shadow-inner flex flex-col gap-3"
+          >
+            <div class="flex items-center justify-center gap-4">
+              <!-- Logo KKN Bulat Sempurna -->
+              <div
+                class="w-16 h-16 rounded-full bg-slate-800 border-2 border-emerald-500/40 flex items-center justify-center p-1 shadow-md overflow-hidden shrink-0"
+              >
+                <img
+                  src="logoKKN.jpeg"
+                  alt="Logo KKN"
+                  class="w-full h-full object-cover rounded-full"
+                  onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-graduation-cap text-amber-400 text-2xl\'></i>';"
+                />
+              </div>
+
+              <div class="w-[1px] h-10 bg-slate-700/60"></div>
+
+              <!-- Logo 52 dengan bentuk perisai modern -->
+              <div
+                class="w-16 h-16 non-square-badge bg-slate-800 border-2 border-teal-500/40 flex items-center justify-center p-1 shadow-md overflow-hidden shrink-0"
+              >
+                <img
+                  src="logo52.png"
+                  alt="Logo 52"
+                  class="w-full h-full object-contain non-square-badge"
+                  onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-award text-teal-400 text-2xl\'></i>';"
+                />
+              </div>
+            </div>
+
+            <!-- Identitas Kelurahan -->
+            <div class="text-center pt-1">
+              <div class="font-bold text-slate-200 text-xs leading-tight">
+                Kelurahan Sempaja Barat
+              </div>
+              <div class="text-[10px] text-slate-400 font-medium mt-0.5">
+                Kecamatan Samarinda Utara
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Role Display -->
+          <div
+            class="pt-1 border-t border-slate-800/60 flex items-center justify-between text-[11px]"
+          >
+            <span class="text-slate-400">Akses:</span>
+            <span
+              id="roleBadge"
+              class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700"
+              >Pengguna</span
+            >
+          </div>
+
+          <div class="text-[10px] text-slate-500 text-center">
+            Versi Sistem v3.0 • &copy; 2026
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Wrapper -->
+      <div class="flex-1 flex flex-col overflow-y-auto">
+        <!-- Top Header Bar -->
+        <header
+          class="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-3.5 flex justify-between items-center shadow-sm no-print"
+        >
+          <div class="flex items-center gap-4">
+            <div>
+              <h1
+                class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2"
+              >
+                Dashboard UMKM
+                <span
+                  class="text-xs font-normal bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full hidden sm:inline-block"
+                  >Sempaja Barat</span
+                >
+              </h1>
+              <p class="text-xs text-slate-500 hidden sm:block">
+                Visualisasi titik sebaran UMKM dan rekapitulasi data statistik
+                per RT
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <div
+              class="flex md:hidden bg-slate-100 p-1 rounded-xl border border-slate-200"
+            >
+              <button
+                onclick="switchTab('peta')"
+                class="px-2 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-white transition"
+              >
+                Peta
+              </button>
+              <button
+                onclick="switchTab('overview')"
+                class="px-2 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-white transition"
+              >
+                Statistik
+              </button>
+              <button
+                onclick="switchTab('tabel')"
+                class="px-2 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-white transition"
+              >
+                Data
+              </button>
+            </div>
+
+            <!-- Tombol Login / Admin Actions -->
+            <div id="authActionsContainer" class="flex items-center gap-2">
+              <button
+                id="btnLoginModal"
+                onclick="openLoginModal()"
+                class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm"
+                title="Masuk ke Mode Administrator"
+              >
+                <i class="fa-solid fa-lock text-xs"></i>
+                <span>Login Admin</span>
+              </button>
+
+              <button
+                id="btnChangePassword"
+                onclick="openChangePassModal()"
+                class="hidden bg-slate-700 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm"
+                title="Sandi Akun Admin"
+              >
+                <i class="fa-solid fa-key text-xs"></i>
+                <span>Ubah Sandi</span>
+              </button>
+
+              <button
+                id="btnLogout"
+                onclick="logoutAdmin()"
+                class="hidden bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm"
+                title="Keluar dari Akses Admin"
+              >
+                <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                <span>Logout</span>
+              </button>
+            </div>
+
+            <button
+              onclick="window.print()"
+              class="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm"
+            >
+              <i class="fa-solid fa-print"></i>
+              <span class="hidden sm:inline">Cetak</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Main Body Content -->
+        <main class="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full flex-1">
+          <!-- HALAMAN 1: PETA & STATISTIK PER RT -->
+          <div id="tab-peta" class="space-y-6 block">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div
+                class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"
+              >
+                <div>
+                  <p
+                    class="text-xs font-bold text-slate-500 uppercase tracking-wider"
+                  >
+                    Total UMKM Terdata
+                  </p>
+                  <h3
+                    class="text-2xl font-black text-slate-900 mt-1"
+                    id="statTotalUmkm"
+                  >
+                    0
+                    <span class="text-xs font-normal text-slate-500"
+                      >Usaha</span
+                    >
+                  </h3>
+                </div>
+                <div
+                  class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl"
+                >
+                  <i class="fa-solid fa-store"></i>
+                </div>
+              </div>
+
+              <div
+                class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"
+              >
+                <div>
+                  <p
+                    class="text-xs font-bold text-slate-500 uppercase tracking-wider"
+                  >
+                    Metode Digital / QRIS
+                  </p>
+                  <h3
+                    class="text-2xl font-black text-emerald-600 mt-1"
+                    id="statDigitalCount"
+                  >
+                    0
+                    <span class="text-xs font-normal text-slate-500"
+                      >Usaha</span
+                    >
+                  </h3>
+                </div>
+                <div
+                  class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl"
+                >
+                  <i class="fa-solid fa-qrcode"></i>
+                </div>
+              </div>
+
+              <div
+                class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"
+              >
+                <div>
+                  <p
+                    class="text-xs font-bold text-slate-500 uppercase tracking-wider"
+                  >
+                    Pembayaran Tunai
+                  </p>
+                  <h3
+                    class="text-2xl font-black text-amber-600 mt-1"
+                    id="statCashCount"
+                  >
+                    0
+                    <span class="text-xs font-normal text-slate-500"
+                      >Usaha</span
+                    >
+                  </h3>
+                </div>
+                <div
+                  class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-xl"
+                >
+                  <i class="fa-solid fa-money-bill-wave"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div
+                class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between space-y-4"
+              >
+                <div
+                  class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
+                >
+                  <div>
+                    <h3
+                      class="text-base font-bold text-slate-900 flex items-center gap-2"
+                    >
+                      <i class="fa-solid fa-location-dot text-emerald-600"></i>
+                      Sebaran Titik Lokasi UMKM
+                    </h3>
+                    <p class="text-xs text-slate-500">
+                      Klik penanda titik pada peta untuk melihat detail produk &
+                      alamat pemilik. Semua UMKM mendukung Tunai.
+                    </p>
+                  </div>
+
+                  <div
+                    class="flex items-center gap-3 text-xs bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200"
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <span
+                        class="w-3 h-3 rounded-full bg-emerald-500 inline-block border border-white shadow-sm"
+                      ></span>
+                      <span class="font-medium text-slate-700"
+                        >Tunai + Digital/QRIS</span
+                      >
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span
+                        class="w-3 h-3 rounded-full bg-amber-500 inline-block border border-white shadow-sm"
+                      ></span>
+                      <span class="font-medium text-slate-700">Tunai</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="map"></div>
+              </div>
+
+              <div
+                class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between"
+              >
+                <div>
+                  <div
+                    class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4"
+                  >
+                    <div>
+                      <h3
+                        class="text-base font-bold text-slate-900 flex items-center gap-2"
+                      >
+                        <i class="fa-solid fa-list-ol text-blue-600"></i> Jumlah
+                        UMKM per RT
+                      </h3>
+                      <p class="text-xs text-slate-500 mt-0.5">
+                        Rekapitulasi RT 01 sampai RT 12
+                      </p>
+                    </div>
+                    <span
+                      class="bg-blue-50 text-blue-700 font-bold text-xs px-2.5 py-1 rounded-lg border border-blue-200"
+                      >12 RT</span
+                    >
+                  </div>
+
+                  <div
+                    class="space-y-2 max-h-[440px] overflow-y-auto pr-1"
+                    id="rtListContainer"
+                  ></div>
+                </div>
+
+                <div
+                  class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex justify-between items-center"
+                >
+                  <span>*Klik RT untuk fokus posisi peta</span>
+                  <button
+                    onclick="resetMapFocus()"
+                    class="text-emerald-600 font-semibold hover:underline"
+                  >
+                    Reset Peta
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- HALAMAN 2: RINGKASAN & STATISTIK -->
+          <div id="tab-overview" class="space-y-6 hidden">
+            <div
+              class="bg-slate-900 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+            >
+              <div>
+                <h2 class="text-xl font-black flex items-center gap-2.5">
+                  <i class="fa-solid fa-chart-line text-emerald-400"></i>
+                  Ringkasan & Statistik UMKM Sempaja Barat
+                </h2>
+                <p class="text-xs text-slate-300 mt-1">
+                  Laporan analisis statistik sebaran metode pembayaran,
+                  akumulasi bidang usaha, dan pemetaan UMKM per wilayah RT.
+                </p>
+              </div>
+              <span
+                class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold px-3 py-1.5 rounded-xl shrink-0"
+              >
+                Data Terverifikasi
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div
+                class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between"
+              >
+                <div>
+                  <div
+                    class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4"
+                  >
+                    <h3
+                      class="text-base font-bold text-slate-900 flex items-center gap-2"
+                    >
+                      <i class="fa-solid fa-wallet text-emerald-600"></i>
+                      Statistik Metode Bayar
+                    </h3>
+                    <span
+                      class="text-xs bg-slate-100 font-semibold px-2.5 py-1 rounded-lg text-slate-600"
+                      id="badgeTotalMetode"
+                    >
+                      Total 0 UMKM
+                    </span>
+                  </div>
+
+                  <div class="space-y-4">
+                    <div
+                      class="bg-amber-50/60 p-4 rounded-xl border border-amber-100"
+                    >
+                      <div class="flex justify-between items-center mb-1.5">
+                        <span
+                          class="text-xs font-bold text-amber-900 flex items-center gap-1.5"
+                        >
+                          <i
+                            class="fa-solid fa-money-bill-wave text-amber-600"
+                          ></i>
+                          Pembayaran Tunai (100% Seluruh UMKM)
+                        </span>
+                        <span
+                          class="text-xs font-black text-amber-700"
+                          id="cashStatText"
+                          >0 Usaha (100%)</span
+                        >
+                      </div>
+                      <div class="w-full bg-amber-200/70 rounded-full h-2.5">
+                        <div
+                          class="bg-amber-500 h-2.5 rounded-full transition-all duration-500"
+                          id="cashProgressBar"
+                          style="width: 100%"
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div
+                      class="bg-emerald-50/60 p-4 rounded-xl border border-emerald-100"
+                    >
+                      <div class="flex justify-between items-center mb-1.5">
+                        <span
+                          class="text-xs font-bold text-emerald-900 flex items-center gap-1.5"
+                        >
+                          <i class="fa-solid fa-qrcode text-emerald-600"></i>
+                          Mendukung Digital / QRIS
+                        </span>
+                        <span
+                          class="text-xs font-black text-emerald-700"
+                          id="digitalStatText"
+                          >0 Usaha (0%)</span
+                        >
+                      </div>
+                      <div class="w-full bg-emerald-200/70 rounded-full h-2.5">
+                        <div
+                          class="bg-emerald-600 h-2.5 rounded-full transition-all duration-500"
+                          id="digitalProgressBar"
+                          style="width: 0%"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p
+                  class="text-[11px] text-slate-400 mt-4 border-t border-slate-100 pt-3"
+                >
+                  *Semua usaha terdata telah mendukung pembayaran tunai secara
+                  pasti (100%).
+                </p>
+              </div>
+
+              <div
+                class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80"
+              >
+                <div
+                  class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4"
+                >
+                  <div>
+                    <h3
+                      class="text-base font-bold text-slate-900 flex items-center gap-2"
+                    >
+                      <i class="fa-solid fa-store text-blue-600"></i>
+                      Statistik Bidang Usaha
+                    </h3>
+                    <p class="text-xs text-slate-500">
+                      Klasifikasi sektor dan jenis bidang usaha yang dijalankan
+                      pelaku UMKM
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                  id="statBidangUsahaContainer"
+                ></div>
+              </div>
+            </div>
+
+            <div
+              class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4"
+            >
+              <div
+                class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-100 pb-3"
+              >
+                <div>
+                  <h3
+                    class="text-base font-bold text-slate-900 flex items-center gap-2"
+                  >
+                    <i class="fa-solid fa-house-flag text-indigo-600"></i>
+                    Statistik UMKM yang Dimiliki Setiap RT
+                  </h3>
+                  <p class="text-xs text-slate-500">
+                    Rincian total unit UMKM dan tingkat kesiapan pembayaran
+                    digital yang dimiliki oleh RT 01 hingga RT 12
+                  </p>
+                </div>
+                <span
+                  class="text-xs bg-indigo-50 text-indigo-700 font-bold px-3 py-1 rounded-xl border border-indigo-100 w-fit"
+                >
+                  Cakupan Wilayah RT 01 - RT 12
+                </span>
+              </div>
+
+              <div
+                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                id="rtOverviewGrid"
+              ></div>
+            </div>
+          </div>
+
+          <!-- HALAMAN 3: DATA RINCIAN UMKM -->
+          <div id="tab-tabel" class="hidden">
+            <div
+              class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden"
+            >
+              <div
+                class="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-slate-50/50"
+              >
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">
+                    Data Rincian Pelaku UMKM
+                  </h3>
+                  <p class="text-xs text-slate-500 mt-0.5">
+                    Daftar lengkap UMKM: Pemilik, Alamat, Bidang & Detail Usaha,
+                    serta Metode Pembayaran.
+                  </p>
+                </div>
+
+                <div
+                  class="flex flex-wrap items-center gap-2 w-full lg:w-auto no-print"
+                >
+                  <!-- Elemen Khusus Admin -->
+                  <div
+                    id="adminControls"
+                    class="hidden flex flex-wrap items-center gap-2"
+                  >
+                    <button
+                      onclick="exportToExcel()"
+                      class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm"
+                    >
+                      <i class="fa-solid fa-file-excel text-sm"></i> Export
+                      Excel
+                    </button>
+
+                    <button
+                      onclick="openAddModal()"
+                      class="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm"
+                    >
+                      <i class="fa-solid fa-plus text-xs"></i> Tambah Data
+                    </button>
+                  </div>
+
+                  <div class="relative flex-1 sm:w-64 min-w-[200px]">
+                    <input
+                      type="text"
+                      id="searchInput"
+                      onkeyup="filterTable()"
+                      placeholder="Cari nama, RT, produk..."
+                      class="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white shadow-sm transition"
+                    />
+                    <i
+                      class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"
+                    ></i>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Table Container -->
+              <div class="overflow-x-auto">
+                <table
+                  class="w-full text-left border-collapse text-xs"
+                  id="umkmTable"
+                >
+                  <thead>
+                    <tr
+                      class="bg-slate-100/90 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]"
+                    >
+                      <th class="p-4 w-12 text-center">No</th>
+                      <th class="p-4 min-w-[160px]">Pemilik & Kontak</th>
+                      <th class="p-4 min-w-[140px]">Alamat</th>
+                      <th class="p-4 min-w-[130px]">Bidang Usaha</th>
+                      <th class="p-4 min-w-[180px]">Detail Usaha</th>
+                      <th class="p-4 min-w-[140px]">Metode Bayar</th>
+                      <th class="p-4 min-w-[120px] text-center no-print">
+                        Aksi
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    class="divide-y divide-slate-100 text-slate-700"
+                    id="umkmTableBody"
+                  ></tbody>
+                </table>
+              </div>
+
+              <div
+                class="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center"
+              >
+                <div>
+                  Total Terdata: <strong id="totalCountText">0</strong> UMKM
+                </div>
+                <div class="text-[11px] text-slate-400">
+                  Status Pendataan: Terverifikasi KKN
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Modal Login Admin -->
+    <div
+      id="loginModal"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-100 space-y-4"
+      >
+        <div
+          class="flex justify-between items-center border-b border-slate-100 pb-3"
+        >
+          <h3
+            class="text-base font-bold text-slate-900 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-lock text-emerald-600"></i> Login Admin
+          </h3>
+          <button
+            onclick="closeLoginModal()"
+            class="text-slate-400 hover:text-slate-600 text-lg"
+          >
+            &times;
+          </button>
+        </div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Password Admin</label
+            >
+            <div class="relative">
+              <input
+                type="password"
+                id="adminPasswordInput"
+                required
+                placeholder="Masukkan password admin"
+                class="w-full border border-slate-300 rounded-xl p-2.5 pr-10 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('adminPasswordInput', 'eyeLoginIcon')"
+                class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
+              >
+                <i class="fa-solid fa-eye" id="eyeLoginIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onclick="closeLoginModal()"
+              class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            >
+              Masuk Admin
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Ubah Password Admin -->
+    <div
+      id="changePassModal"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-100 space-y-4"
+      >
+        <div
+          class="flex justify-between items-center border-b border-slate-100 pb-3"
+        >
+          <h3
+            class="text-base font-bold text-slate-900 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-key text-blue-600"></i> Ubah Password Admin
+          </h3>
+          <button
+            onclick="closeChangePassModal()"
+            class="text-slate-400 hover:text-slate-600 text-lg"
+          >
+            &times;
+          </button>
+        </div>
+
+        <form
+          id="changePassForm"
+          onsubmit="handleChangePassword(event)"
+          class="space-y-3"
+        >
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Password Lama *</label
+            >
+            <div class="relative">
+              <input
+                type="password"
+                id="oldPassword"
+                required
+                class="w-full border border-slate-300 rounded-xl p-2.5 pr-10 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('oldPassword', 'eyeOldIcon')"
+                class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
+              >
+                <i class="fa-solid fa-eye" id="eyeOldIcon"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Password Baru *</label
+            >
+            <div class="relative">
+              <input
+                type="password"
+                id="newPassword"
+                required
+                class="w-full border border-slate-300 rounded-xl p-2.5 pr-10 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('newPassword', 'eyeNewIcon')"
+                class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
+              >
+                <i class="fa-solid fa-eye" id="eyeNewIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onclick="closeChangePassModal()"
+              class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+            >
+              Simpan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Tambah Data Manual -->
+    <div
+      id="addModal"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 space-y-4"
+      >
+        <div
+          class="flex justify-between items-center border-b border-slate-100 pb-3"
+        >
+          <h3
+            class="text-base font-bold text-slate-900 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-user-plus text-emerald-600"></i> Input UMKM
+            Baru
+          </h3>
+          <button
+            onclick="closeAddModal()"
+            class="text-slate-400 hover:text-slate-600 text-lg"
+          >
+            &times;
+          </button>
+        </div>
+
+        <form
+          id="addUmkmForm"
+          onsubmit="saveManualUmkm(event)"
+          class="space-y-3"
+        >
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Nama Pemilik *</label
+            >
+            <input
+              type="text"
+              id="inputNama"
+              required
+              placeholder="Contoh: Ibu Rahma"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Nomor HP / WhatsApp</label
+            >
+            <input
+              type="text"
+              id="inputTelepon"
+              placeholder="Contoh: 0812-3456-7890"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Alamat (Sertakan RT, misal: RT 01)</label
+            >
+            <input
+              type="text"
+              id="inputAlamat"
+              placeholder="Contoh: Jl. AW. Syahranie 4 RT 01"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Bidang Usaha</label
+            >
+            <select
+              id="inputBidang"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+            >
+              <option value="Jasa">Jasa</option>
+              <option value="Perdagangan">Perdagangan</option>
+              <option value="Makanan/minuman">Makanan/minuman</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Detail Usaha (Rincian Produk)</label
+            >
+            <input
+              type="text"
+              id="inputDetail"
+              placeholder="Contoh: Keripik tempe, Makanan ringan"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Metode Pembayaran</label
+            >
+            <select
+              id="inputMetode"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+            >
+              <option value="Tunai">Tunai Saja</option>
+              <option value="Tunai, Non-Tunai (QRIS/Transfer)">
+                Tunai + Non-Tunai (QRIS/Transfer)
+              </option>
+            </select>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onclick="closeAddModal()"
+              class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            >
+              Simpan Data
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Edit Data UMKM -->
+    <div
+      id="editModal"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 space-y-4"
+      >
+        <div
+          class="flex justify-between items-center border-b border-slate-100 pb-3"
+        >
+          <h3
+            class="text-base font-bold text-slate-900 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-pen-to-square text-blue-600"></i> Edit Data
+            UMKM
+          </h3>
+          <button
+            onclick="closeEditModal()"
+            class="text-slate-400 hover:text-slate-600 text-lg"
+          >
+            &times;
+          </button>
+        </div>
+
+        <form id="editUmkmForm" onsubmit="updateUmkm(event)" class="space-y-3">
+          <input type="hidden" id="editIndex" />
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Nama Pemilik *</label
+            >
+            <input
+              type="text"
+              id="editNama"
+              required
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Nomor HP / WhatsApp</label
+            >
+            <input
+              type="text"
+              id="editTelepon"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Alamat (Sertakan RT, misal: RT 01)</label
+            >
+            <input
+              type="text"
+              id="editAlamat"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Bidang Usaha</label
+            >
+            <select
+              id="editBidang"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="Jasa">Jasa</option>
+              <option value="Perdagangan">Perdagangan</option>
+              <option value="Makanan/minuman">Makanan/minuman</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Detail Usaha (Rincian Produk)</label
+            >
+            <input
+              type="text"
+              id="editDetail"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"
+              >Metode Pembayaran</label
+            >
+            <select
+              id="editMetode"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="Tunai">Tunai</option>
+              <option value="Tunai, Non-Tunai (QRIS/Transfer)">
+                Tunai + Non-Tunai (QRIS/Transfer)
+              </option>
+            </select>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onclick="closeEditModal()"
+              class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+            >
+              Perbarui Data
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- JavaScript Program -->
+    <script>
+      let isAdminLoggedIn = false;
+      let storedAdminPassword =
+        localStorage.getItem("adminPassword") || "sempajabaratUMKM";
+
+      function normalizeBidangUsaha(bidang) {
+        if (!bidang) return "Jasa";
+        let trimmed = bidang.trim().toLowerCase();
+        if (
+          trimmed.includes("makanan") ||
+          trimmed.includes("minuman") ||
+          trimmed.includes("kuliner")
+        ) {
+          return "Makanan/minuman";
+        }
+        if (
+          trimmed.includes("perdagangan") ||
+          trimmed.includes("sembako") ||
+          trimmed.includes("toko") ||
+          trimmed.includes("jual")
+        ) {
+          return "Perdagangan";
+        }
+        return "Jasa";
+      }
+
+      function normalizeMetodeBayar(metode) {
+        if (!metode || metode.trim() === "") return "Tunai";
+        let trimmed = metode.trim();
+        if (!trimmed.toLowerCase().includes("tunai")) {
+          return "Tunai, " + trimmed;
+        }
+        return trimmed;
+      }
+
+      function togglePasswordVisibility(inputId, iconId) {
+        const inputField = document.getElementById(inputId);
+        const iconField = document.getElementById(iconId);
+        if (inputField.type === "password") {
+          inputField.type = "text";
+          iconField.classList.remove("fa-eye");
+          iconField.classList.add("fa-eye-slash");
+        } else {
+          inputField.type = "password";
+          iconField.classList.remove("fa-eye-slash");
+          iconField.classList.add("fa-eye");
+        }
+      }
+
+      let rawUmkmList = [
+        {
+          namaPemilik: "Mutiara",
+          noHp: "087745474032",
+          alamat: "Jl. AW. Syahranie 4. RT 09",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "tahu baso, katsu, oseng tongkol, frozen food",
+          metodeBayar: "Tunai, Non-Tunai (QRIS)",
+        },
+        {
+          namaPemilik: "Eka Novianti",
+          noHp: "082254833704",
+          alamat: "Jl. AW. Syahranie 4. RT 09",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "pentol rebus dan es doger",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "sujarwo",
+          noHp: "081347019139",
+          alamat: "Jl. Ring Road 3/H.M Ardans. RT 12",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "air galon isi ulang",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "eka sekar",
+          noHp: "08125508300",
+          alamat: "Perm TVRI blok C. RT 05",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "sembako",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Alfiah",
+          noHp: "085386896601",
+          alamat: "Jl. AW. Syahranie 4. RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "nasi dan lauk",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "kadi sunarko",
+          noHp: "082156845545",
+          alamat: "Perm TVRI. RT 05",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "sembako",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Nina Hasni",
+          noHp: "08388292024",
+          alamat: "Jl. AW. Syahranie 4 RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Es es pop ice, milo, dll",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Mardian",
+          noHp: "082260888157",
+          alamat: "Jl. AW. Syahranie 4 RT 01",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "sayur dan bahan pokok",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "r pansa",
+          noHp: "085246876541",
+          alamat: "Jl. K.H Wahid Hasyim 2. RT 07",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "minuman dan jus",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Eliyana",
+          noHp: "081352001134",
+          alamat: "Jl. AW. Syahranie 4 RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Nasi dan lauk-lauk matang",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "uwi",
+          noHp: "081349887752",
+          alamat: "Jl. Ring Road 3/H.M Ardans. RT 12",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "sembako",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Panur",
+          noHp: "082157077468",
+          alamat: "Jl. AW. Syahranie 4 RT 02",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sembako",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Ruslan",
+          noHp: "081254346911",
+          alamat: "Jl. AW. Syahranie 4 RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Nasi pecel dan lauk lainnya",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Irwan",
+          noHp: "081347636904",
+          alamat: "Jl. AW. Syahranie 4 RT 02",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Tembakau",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "raudhatul jannah",
+          noHp: "085386862520",
+          alamat: "Jl. AW. Syahranie 4 RT 09",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "alat tulis sekolah, baju seragam, alat jahit",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "ratna wulandari",
+          noHp: "081347071661",
+          alamat: "Jl. AW. Syahranie 4 RT 09",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "tahu bulat dan sotong",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Nayya",
+          noHp: "082153205628",
+          alamat: "RT 03",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sate",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Rince Yuniarti",
+          noHp: "085250495886",
+          alamat: "Jl. AW. Syahranie 4 Blok P No. 01 RT. 01",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jual makanan pentol, es, dan bensin eceran",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Zainal Mustaqim",
+          noHp: "085250167683",
+          alamat: "Jl. AW Syahranie 4 Blok K No. 10 RT 01",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jual ice boba dan tea",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Juraidah",
+          noHp: "081347432243",
+          alamat: "Jl. AW. Syahranie 4 Poros RT 01",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jual kue bolu",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Rusli",
+          noHp: "K.H Wahid Hasyim. RT 02",
+          alamat: "KH. Wahid Hasyim",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Jasa Potong rambut",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Hidayat Solihin",
+          noHp: "085346703779",
+          alamat: "Jl. AWS 4 Poros blok Q No. 06 RT 01",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Juak es teh solo dan es teh teler",
+          metodeBayar: "Tunai, Non-Tunai (Qris/Transfer)",
+        },
+        {
+          namaPemilik: "Bun Hoi Fat",
+          noHp: "085246643888",
+          alamat: "Jl. KH. Wahid Hasyim 2 No. 11. RT 04",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Bengkel Motor",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Dewi Indrayani",
+          noHp: "085387570494",
+          alamat: "Jl. AWS 4 Blok S No.06 RT 01",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Jual sembako",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Muh. Amin",
+          noHp: "081254441011",
+          alamat: "KH. Wahid Hasyim. RT 04",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sembako",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Bino",
+          noHp: "082152490970",
+          alamat: "Jl AWS 4 Blok S No, 10 RT 01",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jual jamu",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Lasiyan",
+          noHp: "089504928005",
+          alamat: "Jl. AWS 4 Poros. RT 01",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jual nasi kuning dan kue",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Lim Fandy Sumardy",
+          noHp: "-",
+          alamat: "KH Wahid Hasyim 2 No. 4C RT 04",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Perlengkapan kue",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Rudiansyah",
+          noHp: "085352988877",
+          alamat: "KH. Wahid Hasyim. RT 02",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Pencucian Motor",
+          metodeBayar: "Tunai/Non-Tunai (Qris/Transfer)",
+        },
+        {
+          namaPemilik: "Ida Juriani",
+          noHp: "'082223561075",
+          alamat: "Jl. AWS 4 Gang Melati No.09 RT 01",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Penjahit",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Arief Fathurahman",
+          noHp: "082148892188",
+          alamat: "KH. Wahid Hasyim. RT 04",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "ATK + Fotokopi",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Suardi",
+          noHp: "085345607956",
+          alamat: "KH. Wahid Hasyim. RT 02",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Loundry",
+          metodeBayar: "Tunai, Non-Tunai (Qris/Transfer)",
+        },
+        {
+          namaPemilik: "Fatkhur Rohman",
+          noHp: "082184768061",
+          alamat: "Jl. AWS 4. RT 01",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jual Nasi Goreng",
+          metodeBayar: "Tunai, Non-Tunai (Qris/Tranfer)",
+        },
+        {
+          namaPemilik: "Mulyono",
+          noHp: "082148781308",
+          alamat: "Jl. AWS 4 Blok S. RT 01",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Bengkel",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Zainuri",
+          noHp: "-",
+          alamat: "KH. Wahid Hasyim. RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jual nasi goreng",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "wanik Lestari Bwi",
+          noHp: "08134723762",
+          alamat: "Jl. KH Wahid Hasyim RT 12",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sembako",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Nur Kolis",
+          noHp: "085252895224",
+          alamat: "KH. Wahid Hasyim. RT 04",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Tahu petis",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Rofikin",
+          noHp: "085551265477",
+          alamat: "Jl. KH Wahid Hasyim RT 12",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Jual es rombong",
+          metodeBayar: "Tunai,Non-Tunai (Qris/Tranfer)",
+        },
+        {
+          namaPemilik: "Masniah",
+          noHp: "-",
+          alamat: "KH. Wahid Hasyim. RT 04",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Makanan Matang",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "M Jallani",
+          noHp: "081364827952",
+          alamat: "KH. Wahid Hasyim. RT 02",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Tukang jahit",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Juni Purwondo",
+          noHp: "085820525527",
+          alamat: "Jl. HM Ardhans. RT 12",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Bengkel motor",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Raihanah",
+          noHp: "081545968494",
+          alamat: "KH. Wahid Hasyim. RT 04",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sembako",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Mat. Saleh",
+          noHp: "081350233144",
+          alamat: "Jl. Ringroad 3. RT 12",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Tambal ban",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Hermanto",
+          noHp: "085350036999",
+          alamat: "K.H Wahid Hasyim. RT 04",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Alat elektronik",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Adir",
+          noHp: "085250741535",
+          alamat: "K.H Wahid Hasyim. RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Warung nasi kuning",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Helimatussadiah",
+          noHp: "085328809999",
+          alamat: "Jl. K.H Wahid Hasyim 2 No.5 RT 12",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sembako",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Nasrullah",
+          noHp: "085393948498",
+          alamat: "K.H Wahid Hasyim RT 04",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Bengkel Motor",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Balu",
+          noHp: "085247906915",
+          alamat: "K.H Wahid Hasyim. RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Penjual air galon",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Syahibatur Rahman",
+          noHp: "087714458245",
+          alamat: "Jl. K.H Wahid Hasyim 2 No.5 RT 12",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Makanan dan minuman",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Jumari indah",
+          noHp: "082157517573",
+          alamat: "KH Wahid Hasyim II Perum Pinang Mas No.19 RT 04",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jamu",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "M. Iwantoro",
+          noHp: "081111109927",
+          alamat: "Jl. H.M Ardans/Ring Road 3. RT 12",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Angkutan Umum",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Supiansyah",
+          noHp: "085250000152",
+          alamat: "KH Wahid Hasyim. RT 04",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Makanan matang banjar",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Burhanuddin",
+          noHp: "081254182105",
+          alamat: "JL. H.M Ardans/Ringroad 3. RT 12",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sembako",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Salman",
+          noHp: "081254552268",
+          alamat: "KH. Wahid Hasyim 2 RT 04",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Makanan matang khas",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Apriadi",
+          noHp: "-",
+          alamat: "KH. Wahid Hasyim RT 04",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Makanan matang",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Hanik Triana",
+          noHp: "082353271786",
+          alamat: "JL. H.M. Ardans/ Ringroad 3 RT 12",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Warung makan",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Mukri",
+          noHp: "085246643888",
+          alamat: "Perumahan Pinang Mas RT.06 Blok F.7",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Buah-buahan",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Yoyoksesuto",
+          noHp: "082191686922",
+          alamat: "JL. KH Wahid Hasyim RT 12",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Jamu tradisional",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Mujiono",
+          noHp: "081254441011",
+          alamat: "Perumahan Pinang Mas RT.06 Blok C.2",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Makanan matang",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Iko Purnomo",
+          noHp: "085347479239",
+          alamat: "JL. KH Wahid Hasyim RT 12",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Teh solo",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Syarafiah",
+          noHp: "-",
+          alamat: "Perumahan Pinang Mas RT.06 Blok D.15",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Souvenir",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Zakaria",
+          noHp: "08125303764",
+          alamat: "KH. Wahid Hasyim RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Penjual ayam geprek",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Levina",
+          noHp: "-",
+          alamat: "Perumahan Pinang Mas RT.06 Blok D.7",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Makanan matang",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Jumadil",
+          noHp: "081345352621",
+          alamat: "JL. KH Wahid Hasyim RT 12",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Jasa laundry",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Ihsanul Efpaldi",
+          noHp: "081346778801",
+          alamat: "JL. KH Wahid Hasyim RT 12",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Snack",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Firdaus",
+          noHp: "082380065222",
+          alamat: "KH. Wahid Hasyim RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Air galon",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Rohman",
+          noHp: "08985929559",
+          alamat: "KH. Wahid Hasyim RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Penjual es campur",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Hamdani",
+          noHp: "081253941626",
+          alamat: "JL. KH Wahid Hasyim RT 12",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Pisang dan singkong",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Sukardi",
+          noHp: "081347718390",
+          alamat: "Perumahan Kayu Manis Blok C.23 RT 07",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Makanan matang",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Zarot",
+          noHp: "081347218407",
+          alamat: "KH. Wahid Hasyim RT 02",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Penjual air galon",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Nurhayati",
+          noHp: "-",
+          alamat: "Perumahan Kayu Manis Blok I No. 19 RT 08",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Pedagang eceran kecil",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Octaviana",
+          noHp: "085347951988",
+          alamat: "Perumahan Kayu Manis Blok L.23 RT 07",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Es-es",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Nurtryasruti Agustina",
+          noHp: "082252762443",
+          alamat: "JL. KH Wahid Hasyim RT 12",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Agen brilink dan travel",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Hariono",
+          noHp: "085389727789",
+          alamat: "JL. KH Wahid Hasyim RT 07",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sembako",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Edwar",
+          noHp: "08575355200",
+          alamat: "JL. KH Wahid Hasyim RT12 No.04",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Pakaian",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Wahono",
+          noHp: "082191582872",
+          alamat: "JL. KH Wahid Hasyim RT12",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Jual sayur",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Siti Zakirah",
+          noHp: "085246683815",
+          alamat: "JL. Ring-Road RT12 No.49",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Sembako",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Hariyati",
+          noHp: "082354273377",
+          alamat: "JL. KH Wahid Hasyim RT 07",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Plastik",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Suryansyah",
+          noHp: "082378853384",
+          alamat: "JL. KH Wahid Hasyim RT 07",
+          bidangUsaha: "Jasa",
+          detailUsaha: "Bengkel motor",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Listiyorini",
+          noHp: "08521935268",
+          alamat: "JL. KH Wahid Hasyim 2 RT 07",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Kripik singkong",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Siti Asiah",
+          noHp: "08537690190",
+          alamat: "JL. KH Wahid Hasyim RT 07",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Nasi kuning",
+          metodeBayar: "Tunai",
+        },
+        {
+          namaPemilik: "Ririn Damayanti",
+          noHp: "085345200956",
+          alamat: "JL. KH Wahid Hasyim No. 72 RT 07",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Barang eceran",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Ruhaina",
+          noHp: "082117043271",
+          alamat: "JL. KH Wahid Hasyim 2 GG. Kalem RT 07",
+          bidangUsaha: "Perdagangan",
+          detailUsaha: "Barang eceran",
+          metodeBayar: "Tunai, Non-Tunai (QRIS/Transfer)",
+        },
+        {
+          namaPemilik: "Irwan Susilo",
+          noHp: "082253587651",
+          alamat: "Perumahan Kayu manis blok L No.22 RT 07",
+          bidangUsaha: "Makanan/minuman",
+          detailUsaha: "Kue/Jajanan",
+          metodeBayar: "Tunai",
+        },
+      ];
+
+      const STORAGE_KEY = "umkmData_v4";
+
+      let savedData = localStorage.getItem(STORAGE_KEY);
+      let umkmList = savedData
+        ? JSON.parse(savedData)
+        : rawUmkmList.map((item) => ({
+            ...item,
+            bidangUsaha: normalizeBidangUsaha(item.bidangUsaha),
+            metodeBayar: normalizeMetodeBayar(item.metodeBayar),
+          }));
+
+      function saveToLocalStorage() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(umkmList));
+      }
+
+      const rtCenterCoords = {
+        "RT 01": [-0.457, 117.142],
+        "RT 02": [-0.46, 117.1425],
+        "RT 03": [-0.4595, 117.148],
+        "RT 04": [-0.4575, 117.1515],
+        "RT 05": [-0.456, 117.15],
+        "RT 06": [-0.4535, 117.1495],
+        "RT 07": [-0.4505, 117.15],
+        "RT 08": [-0.453, 117.1465],
+        "RT 09": [-0.454, 117.1435],
+        "RT 10": [-0.45, 117.146],
+        "RT 11": [-0.4475, 117.1465],
+        "RT 12": [-0.4485, 117.142],
+      };
+
+      let mapInstance = null;
+      let mapMarkersGroup = null;
+
+      function updateAuthUI() {
+        const btnLoginModal = document.getElementById("btnLoginModal");
+        const btnChangePassword = document.getElementById("btnChangePassword");
+        const btnLogout = document.getElementById("btnLogout");
+        const adminControls = document.getElementById("adminControls");
+        const roleBadge = document.getElementById("roleBadge");
+
+        if (isAdminLoggedIn) {
+          btnLoginModal.classList.add("hidden");
+          btnChangePassword.classList.remove("hidden");
+          btnLogout.classList.remove("hidden");
+          adminControls.classList.remove("hidden");
+          roleBadge.innerText = "Administrator";
+          roleBadge.className =
+            "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900 text-emerald-300 border border-emerald-700";
+        } else {
+          btnLoginModal.classList.remove("hidden");
+          btnChangePassword.classList.add("hidden");
+          btnLogout.classList.add("hidden");
+          adminControls.classList.add("hidden");
+          roleBadge.innerText = "Pengguna (View Only)";
+          roleBadge.className =
+            "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700";
+        }
+        renderTable();
+      }
+
+      function openLoginModal() {
+        document.getElementById("loginModal").classList.remove("hidden");
+      }
+      function closeLoginModal() {
+        document.getElementById("loginModal").classList.add("hidden");
+        document.getElementById("loginForm").reset();
+      }
+
+      function handleLogin(e) {
+        e.preventDefault();
+        const pwdInput = document.getElementById("adminPasswordInput").value;
+        if (pwdInput === storedAdminPassword) {
+          isAdminLoggedIn = true;
+          closeLoginModal();
+          updateAuthUI();
+          alert("Login berhasil! Anda sekarang masuk sebagai Admin.");
+        } else {
+          alert("Password salah. Silakan coba lagi.");
+        }
+      }
+
+      function logoutAdmin() {
+        isAdminLoggedIn = false;
+        updateAuthUI();
+        alert("Anda telah keluar dari mode Admin.");
+      }
+
+      function openChangePassModal() {
+        document.getElementById("changePassModal").classList.remove("hidden");
+      }
+      function closeChangePassModal() {
+        document.getElementById("changePassModal").classList.add("hidden");
+        document.getElementById("changePassForm").reset();
+      }
+
+      function handleChangePassword(e) {
+        e.preventDefault();
+        const oldP = document.getElementById("oldPassword").value;
+        const newP = document.getElementById("newPassword").value;
+
+        if (oldP !== storedAdminPassword) {
+          alert("Password lama tidak sesuai.");
+          return;
+        }
+
+        if (newP.length < 4) {
+          alert("Password baru minimal 4 karakter.");
+          return;
+        }
+
+        storedAdminPassword = newP;
+        localStorage.setItem("adminPassword", newP);
+        closeChangePassModal();
+        alert("Password admin berhasil diubah secara permanen!");
+      }
+
+      function switchTab(tabName) {
+        const tabOverview = document.getElementById("tab-overview");
+        const tabPeta = document.getElementById("tab-peta");
+        const tabTabel = document.getElementById("tab-tabel");
+
+        const navOverview = document.getElementById("nav-overview");
+        const navPeta = document.getElementById("nav-peta");
+        const navTabel = document.getElementById("nav-tabel");
+
+        const activeClass =
+          "w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-900/30 transition text-left";
+        const inactiveClass =
+          "w-full flex items-center gap-3 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white font-medium transition text-left";
+
+        tabOverview.classList.add("hidden");
+        tabPeta.classList.add("hidden");
+        tabTabel.classList.add("hidden");
+
+        navOverview.className = inactiveClass;
+        navPeta.className = inactiveClass;
+        navTabel.className = inactiveClass;
+
+        if (tabName === "peta") {
+          tabPeta.classList.remove("hidden");
+          navPeta.className = activeClass;
+          setTimeout(() => {
+            if (mapInstance) {
+              mapInstance.invalidateSize();
+            } else {
+              initMap();
+            }
+          }, 100);
+        } else if (tabName === "overview") {
+          tabOverview.classList.remove("hidden");
+          navOverview.className = activeClass;
+          renderOverviewStats();
+        } else {
+          tabTabel.classList.remove("hidden");
+          navTabel.className = activeClass;
+        }
+      }
+
+      function initMap() {
+        if (mapInstance) return;
+
+        mapInstance = L.map("map").setView([-0.454, 117.146], 15);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(mapInstance);
+
+        mapMarkersGroup = L.layerGroup().addTo(mapInstance);
+        renderMapMarkers();
+      }
+
+      function renderMapMarkers(filterRt = null) {
+        if (!mapInstance || !mapMarkersGroup) return;
+        mapMarkersGroup.clearLayers();
+
+        umkmList.forEach((item) => {
+          let matchedRt = "RT 01";
+          for (let i = 1; i <= 12; i++) {
+            const rtStr = i < 10 ? `RT 0${i}` : `RT ${i}`;
+            if (item.alamat && item.alamat.toUpperCase().includes(rtStr)) {
+              matchedRt = rtStr;
+              break;
+            }
+          }
+
+          if (filterRt && matchedRt !== filterRt) return;
+
+          const baseCenter = rtCenterCoords[matchedRt] || [-0.454, 117.146];
+
+          const latOffset = (Math.random() - 0.5) * 0.0035;
+          const lngOffset = (Math.random() - 0.5) * 0.0035;
+          const markerLat = baseCenter[0] + latOffset;
+          const markerLng = baseCenter[1] + lngOffset;
+
+          const isDigital =
+            item.metodeBayar &&
+            (item.metodeBayar.includes("QRIS") ||
+              item.metodeBayar.includes("Non-Tunai"));
+
+          const markerColor = isDigital ? "#10b981" : "#f59e0b";
+          const pulseClass = isDigital
+            ? "custom-marker-digital"
+            : "custom-marker-cash";
+
+          const circleMarker = L.circleMarker([markerLat, markerLng], {
+            radius: 8,
+            fillColor: markerColor,
+            color: "#ffffff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.95,
+            className: pulseClass,
+          });
+
+          const displayMetode = normalizeMetodeBayar(item.metodeBayar);
+
+          const popupContent = `
+          <div class="p-1 font-sans">
+            <span class="text-[10px] font-bold bg-slate-900 text-white px-2 py-0.5 rounded border border-slate-700 uppercase">${escapeHtml(matchedRt)}</span>
+            <h4 class="font-bold text-sm text-slate-900 mt-1.5 mb-0.5">${escapeHtml(item.namaPemilik || "-")}</h4>
+            <p class="text-xs text-slate-600 mb-1"><strong>Produk:</strong> ${escapeHtml(item.detailUsaha || "-")}</p>
+            <p class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 p-1 rounded border border-emerald-200 mt-1">
+              <i class="fa-solid fa-wallet"></i> Pembayaran: ${escapeHtml(displayMetode)}
+            </p>
+          </div>
+        `;
+
+          circleMarker.bindPopup(popupContent);
+          mapMarkersGroup.addLayer(circleMarker);
+        });
+      }
+
+      function calculateRtStatistics() {
+        const stats = {};
+        for (let i = 1; i <= 12; i++) {
+          const rtKey = i < 10 ? `RT 0${i}` : `RT ${i}`;
+          stats[rtKey] = { total: 0, digital: 0, cash: 0 };
+        }
+
+        umkmList.forEach((item) => {
+          let matchedRt = "RT 01";
+          for (let i = 1; i <= 12; i++) {
+            const rtStr = i < 10 ? `RT 0${i}` : `RT ${i}`;
+            if (item.alamat && item.alamat.toUpperCase().includes(rtStr)) {
+              matchedRt = rtStr;
+              break;
+            }
+          }
+
+          if (stats[matchedRt]) {
+            stats[matchedRt].total += 1;
+            stats[matchedRt].cash += 1;
+
+            const isDigital =
+              item.metodeBayar &&
+              (item.metodeBayar.includes("QRIS") ||
+                item.metodeBayar.includes("Non-Tunai"));
+            if (isDigital) {
+              stats[matchedRt].digital += 1;
+            }
+          }
+        });
+
+        return stats;
+      }
+
+      function renderRtList() {
+        const rtContainer = document.getElementById("rtListContainer");
+        const stats = calculateRtStatistics();
+        rtContainer.innerHTML = "";
+
+        Object.keys(stats).forEach((rtKey) => {
+          const data = stats[rtKey];
+          const card = document.createElement("div");
+          card.className =
+            "p-3 rounded-xl bg-slate-50 border border-slate-200/80 hover:bg-emerald-50/60 hover:border-emerald-300 transition cursor-pointer flex justify-between items-center group";
+
+          card.onclick = () => focusMapToRt(rtKey);
+
+          card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-slate-900 text-white font-black text-xs flex items-center justify-center group-hover:bg-emerald-600 transition">
+              ${rtKey.replace("RT ", "")}
+            </div>
+            <div>
+              <div class="font-bold text-slate-800 text-xs">${rtKey}</div>
+              <div class="text-[10px] text-slate-500 flex gap-2">
+                <span class="text-amber-600 font-semibold">${data.cash} Tunai</span> •
+                <span class="text-emerald-600 font-semibold">${data.digital} Digital</span>
+              </div>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-base font-extrabold text-slate-900 group-hover:text-emerald-700">${data.total}</span>
+            <span class="text-[10px] text-slate-400 block font-normal">UMKM</span>
+          </div>
+        `;
+
+          rtContainer.appendChild(card);
+        });
+      }
+
+      function focusMapToRt(rtKey) {
+        if (!mapInstance) return;
+        const coords = rtCenterCoords[rtKey];
+        if (coords) {
+          mapInstance.setView(coords, 17, { animate: true });
+          renderMapMarkers(rtKey);
+        }
+      }
+
+      function resetMapFocus() {
+        if (!mapInstance) return;
+        mapInstance.setView([-0.454, 117.146], 15, { animate: true });
+        renderMapMarkers();
+      }
+
+      function renderOverviewStats() {
+        const total = umkmList.length;
+
+        const digitalCount = umkmList.filter(
+          (i) =>
+            i.metodeBayar &&
+            (i.metodeBayar.includes("QRIS") ||
+              i.metodeBayar.includes("Non-Tunai")),
+        ).length;
+        const cashCount = total;
+
+        const digitalPercent =
+          total > 0 ? ((digitalCount / total) * 100).toFixed(1) : 0;
+        const cashPercent = "100.0";
+
+        document.getElementById("badgeTotalMetode").innerText =
+          `Total ${total} UMKM`;
+        document.getElementById("digitalStatText").innerText =
+          `${digitalCount} Usaha (${digitalPercent}%)`;
+        document.getElementById("cashStatText").innerText =
+          `${cashCount} Usaha (${cashPercent}%)`;
+        document.getElementById("digitalProgressBar").style.width =
+          `${digitalPercent}%`;
+        document.getElementById("cashProgressBar").style.width =
+          `${cashPercent}%`;
+
+        const bidangCounts = {
+          "Makanan/minuman": 0,
+          Perdagangan: 0,
+          Jasa: 0,
+        };
+
+        umkmList.forEach((i) => {
+          let b = normalizeBidangUsaha(i.bidangUsaha);
+          bidangCounts[b] = (bidangCounts[b] || 0) + 1;
+        });
+
+        const bidangContainer = document.getElementById(
+          "statBidangUsahaContainer",
+        );
+        bidangContainer.innerHTML = "";
+
+        const defaultIcons = {
+          "Makanan/minuman": {
+            icon: "fa-utensils",
+            color: "bg-blue-100 text-blue-600",
+          },
+          Perdagangan: {
+            icon: "fa-cart-shopping",
+            color: "bg-emerald-100 text-emerald-600",
+          },
+          Jasa: { icon: "fa-wrench", color: "bg-purple-100 text-purple-600" },
+        };
+
+        Object.keys(bidangCounts)
+          .sort((a, b) => bidangCounts[b] - bidangCounts[a])
+          .forEach((bidang) => {
+            const count = bidangCounts[bidang];
+            const style = defaultIcons[bidang] || {
+              icon: "fa-tag",
+              color: "bg-slate-100 text-slate-600",
+            };
+
+            const itemCard = document.createElement("div");
+            itemCard.className =
+              "p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 flex items-center justify-between";
+            itemCard.innerHTML = `
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl ${style.color} flex items-center justify-center text-sm font-bold shrink-0">
+                <i class="fa-solid ${style.icon}"></i>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-slate-800">${escapeHtml(bidang)}</div>
+                <div class="text-[11px] text-slate-500">${total > 0 ? ((count / total) * 100).toFixed(1) : 0}% dari total</div>
+              </div>
+            </div>
+            <span class="text-sm font-black text-slate-900 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">${count}</span>
+          `;
+            bidangContainer.appendChild(itemCard);
+          });
+
+        const rtContainer = document.getElementById("rtOverviewGrid");
+        const stats = calculateRtStatistics();
+        rtContainer.innerHTML = "";
+
+        Object.keys(stats).forEach((rtKey) => {
+          const data = stats[rtKey];
+          const card = document.createElement("div");
+          card.className =
+            "bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex flex-col justify-between gap-3";
+
+          card.innerHTML = `
+            <div class="flex justify-between items-center border-b border-slate-200/60 pb-2">
+              <span class="font-extrabold text-sm text-slate-800">${rtKey}</span>
+              <span class="text-xs font-black bg-slate-900 text-white px-2 py-0.5 rounded-md">
+                ${data.total} <span class="font-normal text-[10px] text-slate-300">UMKM</span>
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-amber-100/60 p-2 rounded-lg border border-amber-200/60 text-center">
+                <div class="text-[10px] font-bold text-amber-800 uppercase">Tunai</div>
+                <div class="text-base font-black text-amber-700 mt-0.5">${data.cash}</div>
+              </div>
+              <div class="bg-emerald-100/60 p-2 rounded-lg border border-emerald-200/60 text-center">
+                <div class="text-[10px] font-bold text-emerald-800 uppercase">Digital</div>
+                <div class="text-base font-black text-emerald-700 mt-0.5">${data.digital}</div>
+              </div>
+            </div>
+          `;
+
+          rtContainer.appendChild(card);
+        });
+      }
+
+      function renderTable(data = umkmList) {
+        const tbody = document.getElementById("umkmTableBody");
+        tbody.innerHTML = "";
+
+        if (data.length === 0) {
+          tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center p-8 text-slate-400">
+              <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
+              Data tidak ditemukan.
+            </td>
+          </tr>
+        `;
+          document.getElementById("totalCountText").innerText = "0";
+          return;
+        }
+
+        data.forEach((item, index) => {
+          const originalIndex = umkmList.indexOf(item);
+          const row = document.createElement("tr");
+          row.className =
+            "hover:bg-slate-50/80 transition text-xs border-b border-slate-100";
+
+          let badgeClass =
+            "bg-amber-50 text-amber-800 border-amber-200 font-medium";
+          if (
+            item.metodeBayar &&
+            (item.metodeBayar.includes("QRIS") ||
+              item.metodeBayar.includes("Non-Tunai"))
+          ) {
+            badgeClass =
+              "bg-emerald-50 text-emerald-800 border-emerald-200 font-medium";
+          }
+
+          let actionButtonsHtml = "";
+          if (isAdminLoggedIn) {
+            let editBtn = `
+            <button
+              onclick="openEditModal(${originalIndex})"
+              title="Edit Data"
+              class="bg-blue-50 hover:bg-blue-100 text-blue-600 p-1.5 rounded-lg border border-blue-200 transition"
+            >
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>`;
+
+            let deleteBtn = `
+            <button
+              onclick="deleteUmkm(${originalIndex})"
+              title="Hapus Data UMKM"
+              class="bg-rose-50 hover:bg-rose-100 text-rose-600 p-1.5 rounded-lg border border-rose-200 transition"
+            >
+              <i class="fa-solid fa-trash"></i>
+            </button>`;
+
+            actionButtonsHtml = `<div class="flex items-center justify-center gap-1.5">${editBtn}${deleteBtn}</div>`;
+          } else {
+            actionButtonsHtml = `<span class="text-slate-400 text-[11px] font-normal italic">Lihat Saja</span>`;
+          }
+
+          row.innerHTML = `
+          <td class="p-4 text-center font-bold text-slate-400">${index + 1}</td>
+          <td class="p-4">
+            <div class="font-bold text-slate-900">${escapeHtml(item.namaPemilik)}</div>
+            <div class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+              <i class="fa-solid fa-phone text-[10px] text-emerald-600"></i> ${escapeHtml(item.noHp)}
+            </div>
+          </td>
+          <td class="p-4 text-slate-600 max-w-xs">${escapeHtml(item.alamat)}</td>
+          <td class="p-4 font-medium text-slate-800">
+            ${
+              item.bidangUsaha
+                ? `<span class="bg-blue-50 text-blue-700 border border-blue-200/80 px-2 py-0.5 rounded-md text-[11px]">${escapeHtml(item.bidangUsaha)}</span>`
+                : ""
+            }
+          </td>
+          <td class="p-4 text-slate-600 max-w-xs">${escapeHtml(item.detailUsaha)}</td>
+          <td class="p-4">
+            ${
+              item.metodeBayar
+                ? `<span class="inline-block border px-2.5 py-1 rounded-lg text-[11px] ${badgeClass}">${escapeHtml(normalizeMetodeBayar(item.metodeBayar))}</span>`
+                : ""
+            }
+          </td>
+          <td class="p-4 text-center no-print">
+            ${actionButtonsHtml}
+          </td>
+        `;
+          tbody.appendChild(row);
+        });
+
+        document.getElementById("totalCountText").innerText = data.length;
+        updateMetrics();
+        renderRtList();
+        renderMapMarkers();
+        renderOverviewStats();
+      }
+
+      function filterTable() {
+        const query = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        const filtered = umkmList.filter((item) => {
+          return (
+            (item.namaPemilik &&
+              item.namaPemilik.toLowerCase().includes(query)) ||
+            (item.noHp && item.noHp.toLowerCase().includes(query)) ||
+            (item.alamat && item.alamat.toLowerCase().includes(query)) ||
+            (item.bidangUsaha &&
+              item.bidangUsaha.toLowerCase().includes(query)) ||
+            (item.detailUsaha &&
+              item.detailUsaha.toLowerCase().includes(query)) ||
+            (item.metodeBayar && item.metodeBayar.toLowerCase().includes(query))
+          );
+        });
+        renderTable(filtered);
+      }
+
+      function openAddModal() {
+        if (!isAdminLoggedIn) return;
+        document.getElementById("addModal").classList.remove("hidden");
+      }
+      function closeAddModal() {
+        document.getElementById("addModal").classList.add("hidden");
+        document.getElementById("addUmkmForm").reset();
+      }
+
+      function openEditModal(index) {
+        if (!isAdminLoggedIn) return;
+        const item = umkmList[index];
+        if (!item) return;
+
+        document.getElementById("editIndex").value = index;
+        document.getElementById("editNama").value = item.namaPemilik || "";
+        document.getElementById("editTelepon").value = item.noHp || "";
+        document.getElementById("editAlamat").value = item.alamat || "";
+        document.getElementById("editBidang").value =
+          normalizeBidangUsaha(item.bidangUsaha) || "Jasa";
+        document.getElementById("editDetail").value = item.detailUsaha || "";
+        document.getElementById("editMetode").value = normalizeMetodeBayar(
+          item.metodeBayar,
+        );
+
+        document.getElementById("editModal").classList.remove("hidden");
+      }
+
+      function closeEditModal() {
+        document.getElementById("editModal").classList.add("hidden");
+        document.getElementById("editUmkmForm").reset();
+      }
+
+      function updateUmkm(e) {
+        e.preventDefault();
+        if (!isAdminLoggedIn) return;
+        const index = parseInt(document.getElementById("editIndex").value);
+        if (isNaN(index) || index < 0 || index >= umkmList.length) return;
+
+        umkmList[index] = {
+          namaPemilik: document.getElementById("editNama").value,
+          noHp: document.getElementById("editTelepon").value,
+          alamat: document.getElementById("editAlamat").value,
+          bidangUsaha: normalizeBidangUsaha(
+            document.getElementById("editBidang").value,
+          ),
+          detailUsaha: document.getElementById("editDetail").value,
+          metodeBayar: normalizeMetodeBayar(
+            document.getElementById("editMetode").value,
+          ),
+        };
+
+        saveToLocalStorage();
+        renderTable();
+        closeEditModal();
+        alert("Data UMKM berhasil diperbarui!");
+      }
+
+      function deleteUmkm(index) {
+        if (!isAdminLoggedIn) return;
+        const item = umkmList[index];
+        if (!item) return;
+
+        const confirmText = item.namaPemilik
+          ? `Apakah Anda yakin ingin menghapus data UMKM "${item.namaPemilik}"?`
+          : "Apakah Anda yakin ingin menghapus data ini?";
+
+        if (confirm(confirmText)) {
+          umkmList.splice(index, 1);
+          saveToLocalStorage();
+          renderTable();
+        }
+      }
+
+      function saveManualUmkm(e) {
+        e.preventDefault();
+        if (!isAdminLoggedIn) return;
+
+        const newItem = {
+          namaPemilik: document.getElementById("inputNama").value,
+          noHp: document.getElementById("inputTelepon").value,
+          alamat: document.getElementById("inputAlamat").value,
+          bidangUsaha: normalizeBidangUsaha(
+            document.getElementById("inputBidang").value,
+          ),
+          detailUsaha: document.getElementById("inputDetail").value,
+          metodeBayar: normalizeMetodeBayar(
+            document.getElementById("inputMetode").value,
+          ),
+        };
+
+        umkmList.unshift(newItem);
+        saveToLocalStorage();
+        renderTable();
+        closeAddModal();
+        alert("Data UMKM baru berhasil ditambahkan!");
+      }
+
+      function exportToExcel() {
+        if (!isAdminLoggedIn) return;
+
+        if (umkmList.length === 0) {
+          alert("Tidak ada data yang tersedia untuk diexport!");
+          return;
+        }
+
+        const formattedData = umkmList.map((item, index) => ({
+          No: index + 1,
+          "Nama Pemilik": item.namaPemilik || "-",
+          "Nomor Telepon Pemilik": item.noHp || "-",
+          Alamat: item.alamat || "-",
+          "Bidang UMKM": item.bidangUsaha || "-",
+          "Rincian yang Dijual": item.detailUsaha || "-",
+          "Metode Pembayaran yang Digunakan": item.metodeBayar || "Tunai",
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(formattedData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Data UMKM");
+
+        XLSX.writeFile(workbook, "Data_UMKM_Sempaja_Barat.xlsx");
+      }
+
+      function updateMetrics() {
+        const total = umkmList.length;
+        document.getElementById("statTotalUmkm").innerHTML =
+          `${total} <span class="text-xs font-normal text-slate-500">Usaha</span>`;
+
+        const digitalCount = umkmList.filter(
+          (i) =>
+            i.metodeBayar &&
+            (i.metodeBayar.includes("QRIS") ||
+              i.metodeBayar.includes("Non-Tunai")),
+        ).length;
+        const cashCount = total;
+
+        document.getElementById("statDigitalCount").innerHTML =
+          `${digitalCount} <span class="text-xs font-normal text-slate-500">Usaha</span>`;
+        document.getElementById("statCashCount").innerHTML =
+          `${cashCount} <span class="text-xs font-normal text-slate-500">Usaha</span>`;
+      }
+
+      function escapeHtml(str) {
+        if (!str) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        updateAuthUI();
+        initMap();
+      });
+    </script>
+  </body>
+</html>
